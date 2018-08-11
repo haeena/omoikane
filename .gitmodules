@@ -1,3 +1,0 @@
-[submodule "slackeventsapi"]
-	path = slackeventsapi
-	url = https://github.com/slackapi/python-slack-events-api.git
