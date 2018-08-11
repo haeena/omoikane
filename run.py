@@ -2,8 +2,8 @@ from slackeventsapi import SlackEventAdapter
 from slackclient import SlackClient
 import os
 
-SLACK_VERIFICATION_TOKEN = os.environ["SLACK_VERIFICATION_TOKEN"]
-slack_events_adapter = SlackEventAdapter(SLACK_VERIFICATION_TOKEN, "/slack/events")
+SLACK_SIGNING_SECRET = os.environ["SLACK_SIGNING_SECRET"]
+slack_events_adapter = SlackEventAdapter(SLACK_SIGNING_SECRET, "/omoikane/events")
 
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 slack_client = SlackClient(SLACK_BOT_TOKEN)
