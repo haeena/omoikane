@@ -13,11 +13,35 @@ nature_config.access_token = API_TOKEN = os.getenv("NATURE_ACCESS_TOKEN")
 nature_api_client = NatureApiClient(configuration=nature_config)
 nature_api = NatureApi(nature_api_client)
 
-def room_info(event_data):
-    message = event_data["event"]
-    if message.get("subtype") is None and "room" in message.get('text'):
-        channel = message["channel"]
+def post_select_room_action(slack_client, channel, user=None, ephemeral=False):
+    nature_devices = nature_api.v1_devices_get()
 
+    options = [{"text": dev["name"], "value": dev["name"]} for dev in nature_devices]
+
+    attachments = [
+        {
+            "fallback": "Upgrade your Slack client to use messages like these.",
+            "color": "#258ab5",
+            "attachment_type": "default",
+            "callback_id": "select_room",
+            "actions": [
+                {
+                    "name": "device_list",
+                    "text": "Select room",
+                    "type": "select",
+                    "options": options
+                }
+            ]
+        }
+    ]
+
+    slack_client.api_call(
+        "chat.postMessage",
+        channel=channel,
+        attachments=attachments
+    )
+
+def room_info(slack_client, channel, user=None, ephemeral=False):
     nature_device_status = nature_api.v1_devices_get()
 
     status_lines = []
@@ -34,4 +58,8 @@ def room_info(event_data):
             lines += " {}Light".format(events["il"]["val"])
         status_lines.append(lines)
 
-    message.send("\n".join(status_lines))
+    slack_client.api_call(
+        "chat.postMessage",
+        channel=channel,
+        text="\n".join(status_lines)
+    )
