@@ -1,5 +1,5 @@
-from slackbot.bot import respond_to
-from slackbot.bot import listen_to
+from slackeventsapi import SlackEventAdapter
+
 import os
 import re
 import json
@@ -13,9 +13,11 @@ nature_config.access_token = API_TOKEN = os.getenv("NATURE_ACCESS_TOKEN")
 nature_api_client = NatureApiClient(configuration=nature_config)
 nature_api = NatureApi(nature_api_client)
 
-@listen_to("room", re.IGNORECASE)
-@listen_to("部屋", re.IGNORECASE)
-def room_info(message):
+def room_info(event_data):
+    message = event_data["event"]
+    if message.get("subtype") is None and "room" in message.get('text'):
+        channel = message["channel"]
+
     nature_device_status = nature_api.v1_devices_get()
 
     status_lines = []

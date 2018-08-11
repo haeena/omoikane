@@ -6,10 +6,17 @@
 #
 certifi==2018.4.16        # via requests
 chardet==3.0.4            # via requests
+click==6.7                # via flask
+flask==1.0.2              # via slackeventsapi
 idna==2.7                 # via requests
+itsdangerous==0.24        # via flask
+jinja2==2.10              # via flask
+markupsafe==1.0           # via jinja2
+pyee==5.0.0               # via slackeventsapi
 requests==2.19.1
-six==1.11.0               # via slackbot, websocket-client
-slackbot==0.5.3
-slacker==0.9.65           # via slackbot
+six==1.11.0               # via slackclient, slackeventsapi, websocket-client
+slackclient==1.2.1
+slackeventsapi==1.1.0
 urllib3==1.23             # via requests
-websocket-client==0.44.0  # via slackbot
+websocket-client==0.44.0  # via slackclient
+werkzeug==0.14.1          # via flask
