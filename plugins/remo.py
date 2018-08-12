@@ -13,23 +13,29 @@ nature_config.access_token = API_TOKEN = os.getenv("NATURE_ACCESS_TOKEN")
 nature_api_client = NatureApiClient(configuration=nature_config)
 nature_api = NatureApi(nature_api_client)
 
-def post_select_room_action(slack_client, channel, user=None, ephemeral=False):
+def post_select_room(slack_client, channel, user=None, ephemeral=False):
     nature_devices = nature_api.v1_devices_get()
 
-    options = [{"text": dev["name"], "value": dev["name"]} for dev in nature_devices]
+    options = [{"text": dev["name"], "value": dev["id"]} for dev in nature_devices]
 
     attachments = [
         {
             "fallback": "Upgrade your Slack client to use messages like these.",
             "color": "#258ab5",
             "attachment_type": "default",
-            "callback_id": "select_room",
+            "callback_id": "nature_remo",
             "actions": [
                 {
-                    "name": "device_list",
+                    "name": "select_room",
                     "text": "Select room",
                     "type": "select",
                     "options": options
+                },
+                {
+                    "name": "select_device",
+                    "text": "select device",
+                    "type": "select",
+                    "options": [{"text": "select room first", "value": 0}]
                 }
             ]
         }
@@ -41,7 +47,24 @@ def post_select_room_action(slack_client, channel, user=None, ephemeral=False):
         attachments=attachments
     )
 
-def room_info(slack_client, channel, user=None, ephemeral=False):
+def update_select_device_in_room(slack_client, channel, original_message, post_ts, room, user=None, ephemeral=False):
+    nature_appliances = nature_api.v1_appliances_get()
+
+    select_device_options = [{"text": app.nickname, "value": app.id} for app in nature_appliances if app.device.id == room]
+
+    attachments = original_message["attachments"]
+    selected_room_option = [opt for opt in attachments[0]["actions"][0]["options"] if opt["value"] == room]
+    attachments[0]["actions"][0]["selected_options"] = selected_room_option
+    attachments[0]["actions"][1]["options"] = select_device_options
+
+    slack_client.api_call(
+        "chat.update",
+        channel=channel,
+        ts=post_ts,
+        attachments=attachments
+    )
+
+def post_room_info(slack_client, channel, user=None, ephemeral=False):
     nature_device_status = nature_api.v1_devices_get()
 
     status_lines = []
