@@ -6,7 +6,7 @@ import os
 import json
 from pprint import pprint
 
-from plugins.remo import post_room_info, post_select_room, update_select_device_in_room
+from plugins.remo import post_room_info, post_action_nature_remo, handle_callback_nature_remo
 
 app = Flask(__name__)
 
@@ -24,15 +24,10 @@ def handle_interactive_post():
     if request_body["token"] != SLACK_SIGNING_SECRET:
         return make_response("", 400)
 
-    channel = request_body["channel"]["id"]
-    user = request_body["user"]["id"]
     callback_id = request_body["callback_id"]
-    origical_message = request_body["original_message"]
 
     if callback_id == "nature_remo":
-        room = request_body["actions"][0]["selected_options"][0]["value"]
-        post_ts = request_body["message_ts"]
-        update_select_device_in_room(slack_client, channel, origical_message, post_ts, room)
+        handle_callback_nature_remo(slack_client=slack_client, request=request_body)
 
     return make_response("", 200)
 
@@ -51,7 +46,7 @@ def handle_message(event_data):
         post_room_info(slack_client, channel)
     if message.get("subtype") is None and "ctrl" in message.get('text'):
         channel = message["channel"]
-        post_select_room(slack_client, channel)
+        post_action_nature_remo(slack_client, channel)
 
 # Example reaction emoji echo
 @slack_events_adapter.on("reaction_added")

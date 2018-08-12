@@ -3,6 +3,7 @@ from slackeventsapi import SlackEventAdapter
 import os
 import re
 import json
+from pprint import pprint
 
 # generate client
 from nature_api_client.api_client import ApiClient as NatureApiClient, Configuration as NatureConfig
@@ -13,7 +14,7 @@ nature_config.access_token = API_TOKEN = os.getenv("NATURE_ACCESS_TOKEN")
 nature_api_client = NatureApiClient(configuration=nature_config)
 nature_api = NatureApi(nature_api_client)
 
-def post_select_room(slack_client, channel, user=None, ephemeral=False):
+def post_action_nature_remo(slack_client, channel):
     nature_devices = nature_api.v1_devices_get()
 
     options = [{"text": dev["name"], "value": dev["id"]} for dev in nature_devices]
@@ -30,12 +31,6 @@ def post_select_room(slack_client, channel, user=None, ephemeral=False):
                     "text": "Select room",
                     "type": "select",
                     "options": options
-                },
-                {
-                    "name": "select_device",
-                    "text": "select device",
-                    "type": "select",
-                    "options": [{"text": "select room first", "value": 0}]
                 }
             ]
         }
@@ -47,22 +42,78 @@ def post_select_room(slack_client, channel, user=None, ephemeral=False):
         attachments=attachments
     )
 
-def update_select_device_in_room(slack_client, channel, original_message, post_ts, room, user=None, ephemeral=False):
-    nature_appliances = nature_api.v1_appliances_get()
+def handle_callback_nature_remo(slack_client, request):
+    channel = request["channel"]["id"]
+    user = request["user"]["id"]
+    origical_message = request["original_message"]
+    post_ts = request["message_ts"]
+    attachments = origical_message["attachments"]
 
-    select_device_options = [{"text": app.nickname, "value": app.id} for app in nature_appliances if app.device.id == room]
+    actions = attachments[0]["actions"]
+    selected_field = request["actions"][0]["name"]
+    selected_value = request["actions"][0]["selected_options"][0]["value"]
 
-    attachments = original_message["attachments"]
-    selected_room_option = [opt for opt in attachments[0]["actions"][0]["options"] if opt["value"] == room]
-    attachments[0]["actions"][0]["selected_options"] = selected_room_option
-    attachments[0]["actions"][1]["options"] = select_device_options
+    if selected_field == "select_room":
+        selected_room = selected_value
+        selected_room_option = [opt for opt in actions[0]["options"] if opt["value"] == selected_room]
+        actions = actions[0:1]
+        actions[0]["selected_options"] = selected_room_option
 
-    slack_client.api_call(
-        "chat.update",
-        channel=channel,
-        ts=post_ts,
-        attachments=attachments
-    )
+        nature_appliances = nature_api.v1_appliances_get()
+        device_options = [{"text": app.nickname, "value": app.id} for app in nature_appliances if app.device.id == selected_room]
+
+        actions.append({
+                    "name": "select_device",
+                    "text": "Select device",
+                    "type": "select",
+                    "options": device_options})
+
+        attachments[0]["actions"] = actions
+
+        slack_client.api_call(
+            "chat.update",
+            channel=channel,
+            ts=post_ts,
+            attachments=attachments
+        )
+    elif selected_field == "select_device":
+        selected_device = selected_value
+        selected_device_option = [opt for opt in actions[1]["options"] if opt["value"] == selected_device]
+        actions = actions[0:2]
+        actions[1]["selected_options"] = selected_device_option
+
+        nature_appliances = nature_api.v1_appliances_get()
+        device_info = [app for app in nature_appliances if app.id == selected_device][0]
+        device_type = device_info.type
+
+        if device_type == "AC":
+            current_setting = device_info.settings
+            current_mode = current_setting.mode if current_setting.button != "power-off" else "off"
+            current_temp = current_setting.temp
+            current_vol = current_setting.vol
+
+            modes = device_info.aircon.range.modes
+            mode_options = [{"text": "off", "value": "off"}] + [{"text": mode, "value": mode} for mode in modes.attribute_map.keys()]
+            selected_mode_options = [opt for opt in mode_options if opt["value"] == current_mode]
+
+            actions.append({
+                        "name": "select_mode",
+                        "text": "Select mode",
+                        "type": "select",
+                        "options": mode_options,
+                        "selected_options": selected_mode_options})
+
+            attachments[0]["actions"] = actions
+
+        else: # device_type == "IR"
+            pass
+
+        slack_client.api_call(
+            "chat.update",
+            channel=channel,
+            ts=post_ts,
+            attachments=attachments
+        )
 
 def post_room_info(slack_client, channel, user=None, ephemeral=False):
     nature_device_status = nature_api.v1_devices_get()
