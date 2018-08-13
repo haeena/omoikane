@@ -14,6 +14,14 @@ nature_config.access_token = API_TOKEN = os.getenv("NATURE_ACCESS_TOKEN")
 nature_api_client = NatureApiClient(configuration=nature_config)
 nature_api = NatureApi(nature_api_client)
 
+def signed_number(i):
+    i = str(i)
+    try:
+        i = int(i)
+    except ValueError:
+        i = float(i)
+    return f"{i: }" if i == 0 else f"{i:+}"
+
 def post_action_nature_remo(slack_client, channel):
     nature_devices = nature_api.v1_devices_get()
 
@@ -93,9 +101,8 @@ def handle_callback_nature_remo(slack_client, request):
             current_vol = current_setting.vol
 
             modes = device_info.aircon.range.modes
-            mode_options = [{"text": "off", "value": "off"}] + [{"text": mode, "value": mode} for mode in modes.attribute_map.keys()]
+            mode_options = [{"text": "mode: off", "value": "off"}] + [{"text": "mode: {}".format(mode), "value": mode} for mode in modes.attribute_map.keys()]
             selected_mode_options = [opt for opt in mode_options if opt["value"] == current_mode]
-
             actions.append({
                         "name": "select_mode",
                         "text": "Select mode",
@@ -103,6 +110,43 @@ def handle_callback_nature_remo(slack_client, request):
                         "options": mode_options,
                         "selected_options": selected_mode_options})
 
+            if current_mode not in ("off", "blow"):
+                temps = getattr(device_info.aircon.range.modes, current_mode).temp
+                if current_mode in ("auto", "dry"):
+                    temp_options = [{"text": "temp: {}".format(signed_number(temp)), "value": temp} for temp in temps]
+                    default_temp_options = [ opt for opt in temp_options if opt["value"] == "0" ]
+                else:
+                    temp_options = [{"text": "temp: " + str(temp) + "℃", "value": temp } for temp in temps]
+                    if current_mode in ("warm"):
+                        default_temp_options = [ opt for opt in temp_options if opt["value"] == "18" ]
+                    else:
+                        default_temp_options = [ opt for opt in temp_options if opt["value"] == "27" ]
+
+                selected_temp_options = [opt for opt in temp_options if opt["value"] == current_temp]
+                if len(selected_temp_options) == 0:
+                    selected_temp_options = default_temp_options if len(default_temp_options) != 0 else temp_options[0]
+
+                actions.append({
+                            "name": "select_temp",
+                            "text": "Select temperture",
+                            "type": "select",
+                            "options": temp_options,
+                            "selected_options": selected_temp_options})
+
+            if current_mode not in ("off"):
+                vols = getattr(device_info.aircon.range.modes, current_mode).vol
+                vol_options = [{"text": "volume: {}".format(vol), "value": vol} for vol in vols]
+                selected_vol_options = [opt for opt in vol_options if opt["value"] == current_vol]
+                if len(selected_vol_options) == 0:
+                    selected_vol_options = vol_options[0]
+                actions.append({
+                            "name": "select_vol",
+                            "text": "Select volume",
+                            "type": "select",
+                            "options": vol_options,
+                            "selected_options": selected_vol_options})
+
+            pprint(actions)
             attachments[0]["actions"] = actions
 
         else: # device_type == "IR"
