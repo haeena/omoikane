@@ -119,8 +119,8 @@ def handle_callback_nature_remo(slack_client, request):
 
                 selected_temp_options = [opt for opt in temp_options if opt["value"] == current_setting.temp]
                 if len(selected_temp_options) == 0:
-                    selected_temp_options = temp_options[0]
-                    current_setting.temp = selected_temp_options["value"]
+                    selected_temp_options = temp_options[0:1]
+                    current_setting.temp = selected_temp_options[0]["value"]
                 actions.append({
                             "name": "select_temp",
                             "text": "Select temperture",
@@ -134,10 +134,10 @@ def handle_callback_nature_remo(slack_client, request):
                 selected_vol_options = [opt for opt in vol_options if opt["value"] == current_setting.vol]
                 if len(selected_vol_options) == 0:
                     selected_vol_options = [opt for opt in vol_options if opt["value"] == "auto"]
-                    current_setting.vol = selected_vol_options["value"]
+                    current_setting.vol = selected_vol_options[0]["value"]
                 if len(selected_vol_options) == 0:
-                    selected_vol_options = vol_options[0]
-                    current_setting.vol = selected_vol_options["value"]
+                    selected_vol_options = vol_options[0:1]
+                    current_setting.vol = selected_vol_options[0]["value"]
                 actions.append({
                             "name": "select_vol",
                             "text": "Select volume",
@@ -151,10 +151,10 @@ def handle_callback_nature_remo(slack_client, request):
                 selected_dir_options = [opt for opt in dir_options if opt["value"] == current_setting.dir]
                 if len(selected_dir_options) == 0:
                     selected_dir_options = [opt for opt in dir_options if opt["value"] == "still"]
-                    current_setting.dir = selected_dir_options["value"]
+                    current_setting.dir = selected_dir_options[0]["value"]
                 if len(selected_dir_options) == 0:
-                    selected_dir_options = dir_options[0]
-                    current_setting.dir = selected_dir_options["value"]
+                    selected_dir_options = dir_options[0:1]
+                    current_setting.dir = selected_dir_options[0]["value"]
                 actions.append({
                             "name": "select_dir",
                             "text": "Select direction",
