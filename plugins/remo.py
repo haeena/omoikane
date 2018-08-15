@@ -104,24 +104,23 @@ def handle_callback_nature_remo(slack_client, request):
                         "options": mode_options,
                         "selected_options": selected_mode_options})
 
-            # temperture
-            temps = getattr(device_info.aircon.range.modes, current_setting.mode).temp
-            if selected_mode in ("off", "blow"):
-                current_setting.temp = temps[0] # should be empty string ""
-            else:
+            if selected_mode != "off":
+                # temperture
+                temps = getattr(device_info.aircon.range.modes, current_setting.mode).temp
                 if selected_mode in ("auto", "dry"):
                     temp_options = [{"text": "temp: {}".format(signed_number(temp)), "value": temp} for temp in temps]
                     current_setting.temp = "0"
                 else:
                     temp_options = [{"text": "temp: " + str(temp) + "℃", "value": temp } for temp in temps]
-                    if selected_mode in ("warm"):
+                    if selected_mode == "warm":
                         current_setting.temp = "18"
-                    else:
+                    elif selected_mode == "cool":
                         current_setting.temp = "27"
 
                 selected_temp_options = [opt for opt in temp_options if opt["value"] == current_setting.temp]
                 if len(selected_temp_options) == 0:
                     selected_temp_options = temp_options[0]
+                    current_setting.temp = selected_temp_options["value"]
                 actions.append({
                             "name": "select_temp",
                             "text": "Select temperture",
@@ -129,17 +128,16 @@ def handle_callback_nature_remo(slack_client, request):
                             "options": temp_options,
                             "selected_options": selected_temp_options})
 
-            # volume
-            vols = getattr(device_info.aircon.range.modes, selected_mode).vol
-            if selected_mode in ("off"):
-                current_setting.vol = vols[0] # should be empty string ""
-            else:
+                # volume
+                vols = getattr(device_info.aircon.range.modes, selected_mode).vol
                 vol_options = [{"text": "volume: {}".format(vol), "value": vol} for vol in vols]
                 selected_vol_options = [opt for opt in vol_options if opt["value"] == current_setting.vol]
                 if len(selected_vol_options) == 0:
                     selected_vol_options = [opt for opt in vol_options if opt["value"] == "auto"]
+                    current_setting.vol = selected_vol_options["value"]
                 if len(selected_vol_options) == 0:
                     selected_vol_options = vol_options[0]
+                    current_setting.vol = selected_vol_options["value"]
                 actions.append({
                             "name": "select_vol",
                             "text": "Select volume",
@@ -147,17 +145,16 @@ def handle_callback_nature_remo(slack_client, request):
                             "options": vol_options,
                             "selected_options": selected_vol_options})
 
-            dirs = getattr(device_info.aircon.range.modes, selected_mode).dir
-            # direction
-            if selected_mode in ("off"):
-                current_setting.dir = dirs[0] # should be empty string ""
-            else:
+                # direction
+                dirs = getattr(device_info.aircon.range.modes, selected_mode).dir
                 dir_options = [{"text": "direction: {}".format(dir), "value": dir} for dir in dirs]
                 selected_dir_options = [opt for opt in dir_options if opt["value"] == current_setting.dir]
                 if len(selected_dir_options) == 0:
                     selected_dir_options = [opt for opt in dir_options if opt["value"] == "still"]
+                    current_setting.dir = selected_dir_options["value"]
                 if len(selected_dir_options) == 0:
                     selected_dir_options = dir_options[0]
+                    current_setting.dir = selected_dir_options["value"]
                 actions.append({
                             "name": "select_dir",
                             "text": "Select direction",
@@ -187,6 +184,7 @@ def handle_callback_nature_remo(slack_client, request):
             current_setting.dir = selected_value
 
         if selected_field != "select_device":
+            pprint(current_setting)
             result = nature_api.v1_appliances_appliance_aircon_settings_post(
                 selected_device,
                 button=current_setting.button, operation_mode=current_setting.mode, 
