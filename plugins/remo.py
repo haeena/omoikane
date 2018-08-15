@@ -85,7 +85,7 @@ def handle_callback_nature_remo(slack_client, request):
         # merge button into mode
         if selected_field == "select_mode":
             selected_mode = selected_value
-            current_setting.mode = selected_mode
+            current_setting.mode = selected_mode if selected_mode != "off" else current_setting.mode
             current_setting.button = "power-off" if selected_mode == "off" else "power-on"
         else:
             selected_mode = current_setting.mode if current_setting.button != "power-off" else "off"
