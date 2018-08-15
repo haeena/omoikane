@@ -25,15 +25,14 @@ def handle_interactive_post():
         return make_response("", 400)
 
     callback_id = request_body["callback_id"]
-
     if callback_id == "nature_remo":
-        handle_callback_nature_remo(slack_client=slack_client, request=request_body)
+        handle_callback_nature_remo(slack_client, request_body)
 
     return make_response("", 200)
 
 @slack_events_adapter.on("message")
 def handle_message(event_data):
-    pprint(event_data)
+    ## pprint(event_data)
 
     message = event_data["event"]
     # If the incoming message contains "hi", then respond with a "Hello" message
@@ -41,10 +40,10 @@ def handle_message(event_data):
         channel = message["channel"]
         response_text = "Hello <@%s>! :tada:" % message["user"]
         slack_client.api_call("chat.postMessage", channel=channel, text=response_text)
-    if message.get("subtype") is None and "room" in message.get('text'):
+    if message.get("subtype") is None and message.get('text').startswith("omoikane room"):
         channel = message["channel"]
         post_room_info(slack_client, channel)
-    if message.get("subtype") is None and "ctrl" in message.get('text'):
+    if message.get("subtype") is None and message.get('text').startswith("omoikane remo"):
         channel = message["channel"]
         post_action_nature_remo(slack_client, channel)
 
