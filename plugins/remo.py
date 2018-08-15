@@ -72,8 +72,10 @@ def handle_callback_nature_remo(slack_client, request):
         selected_device_option = [opt for opt in actions[0]["options"] if opt["value"] == selected_device]
         actions = actions[0:1]
         actions[0]["selected_options"] = selected_device_option
+        selected_device_name = actions[0]["selected_options"][0]["text"]
     else:
         selected_device = actions[0]["selected_options"][0]["value"]
+        selected_device_name = actions[0]["selected_options"][0]["text"]
 
     nature_appliances = nature_api.v1_appliances_get()
     device_info = [app for app in nature_appliances if app.id == selected_device][0]
@@ -190,6 +192,11 @@ def handle_callback_nature_remo(slack_client, request):
                 temperature=current_setting.temp,
                 air_volume=current_setting.vol, air_direction=current_setting.dir)
             pprint(result)
+            slack_client.api_call(
+                "chat.postMessage",
+                channel=channel,
+                text=f"Remo Send IR to {selected_device_name}: mode {selected_mode} - target temperture: {current_setting.temp} - air_volume: {current_setting.vol} - air_direction: {current_setting.dir}"
+            )
 
     else: # device_type == "IR"
         pass
