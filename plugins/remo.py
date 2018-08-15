@@ -34,7 +34,8 @@ def post_action_nature_remo(slack_client, channel):
 
     attachments = [
         {
-            "fallback": "Upgrade your Slack client to use messages like these.",
+            "text": "Please select target device, and operation.",
+            "fallback": "Omoikane: IR Remote Control function by nature remo",
             "color": "#258ab5",
             "attachment_type": "default",
             "callback_id": "nature_remo",
@@ -57,7 +58,6 @@ def post_action_nature_remo(slack_client, channel):
 
 def handle_callback_nature_remo(slack_client, request):
     channel = request["channel"]["id"]
-    user = request["user"]["id"]
     origical_message = request["original_message"]
     post_ts = request["message_ts"]
     attachments = origical_message["attachments"]
@@ -184,7 +184,6 @@ def handle_callback_nature_remo(slack_client, request):
             current_setting.dir = selected_value
 
         if selected_field != "select_device":
-            pprint(current_setting)
             result = nature_api.v1_appliances_appliance_aircon_settings_post(
                 selected_device,
                 button=current_setting.button, operation_mode=current_setting.mode, 
