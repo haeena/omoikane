@@ -22,10 +22,15 @@ def signed_number(i):
         i = float(i)
     return f"{i: }" if i == 0 else f"{i:+}"
 
-def post_action_nature_remo(slack_client, channel):
-    nature_devices = nature_api.v1_devices_get()
+def appliance_name_with_device(device_name, appliance_nickname):
+    if appliance_nickname.lower().startswith(device_name.lower()):
+        return device_name + ": " + appliance_nickname[len(device_name):].lstrip()
+    else:
+        return device_name + ": " + appliance_nickname
 
-    options = [{"text": dev["name"], "value": dev["id"]} for dev in nature_devices]
+def post_action_nature_remo(slack_client, channel):
+    nature_appliances = nature_api.v1_appliances_get()
+    device_options = [{"text": appliance_name_with_device(app.device.name, app.nickname), "value": app.id} for app in nature_appliances]
 
     attachments = [
         {
@@ -35,10 +40,10 @@ def post_action_nature_remo(slack_client, channel):
             "callback_id": "nature_remo",
             "actions": [
                 {
-                    "name": "select_room",
-                    "text": "Select room",
+                    "name": "select_device",
+                    "text": "Select device",
                     "type": "select",
-                    "options": options
+                    "options": device_options
                 }
             ]
         }
@@ -61,48 +66,37 @@ def handle_callback_nature_remo(slack_client, request):
     selected_field = request["actions"][0]["name"]
     selected_value = request["actions"][0]["selected_options"][0]["value"]
 
-    if selected_field == "select_room":
-        selected_room = selected_value
-        selected_room_option = [opt for opt in actions[0]["options"] if opt["value"] == selected_room]
-        actions = actions[0:1]
-        actions[0]["selected_options"] = selected_room_option
-
-        nature_appliances = nature_api.v1_appliances_get()
-        device_options = [{"text": app.nickname, "value": app.id} for app in nature_appliances if app.device.id == selected_room]
-
-        actions.append({
-                    "name": "select_device",
-                    "text": "Select device",
-                    "type": "select",
-                    "options": device_options})
-
-        attachments[0]["actions"] = actions
-
-        slack_client.api_call(
-            "chat.update",
-            channel=channel,
-            ts=post_ts,
-            attachments=attachments
-        )
-    elif selected_field == "select_device":
+    # device info
+    if selected_field == "select_device":
         selected_device = selected_value
-        selected_device_option = [opt for opt in actions[1]["options"] if opt["value"] == selected_device]
-        actions = actions[0:2]
-        actions[1]["selected_options"] = selected_device_option
+        selected_device_option = [opt for opt in actions[0]["options"] if opt["value"] == selected_device]
+        actions = actions[0:1]
+        actions[0]["selected_options"] = selected_device_option
+    else:
+        selected_device = actions[0]["selected_options"][0]["value"]
 
-        nature_appliances = nature_api.v1_appliances_get()
-        device_info = [app for app in nature_appliances if app.id == selected_device][0]
-        device_type = device_info.type
+    nature_appliances = nature_api.v1_appliances_get()
+    device_info = [app for app in nature_appliances if app.id == selected_device][0]
+    device_type = device_info.type
 
-        if device_type == "AC":
-            current_setting = device_info.settings
-            current_mode = current_setting.mode if current_setting.button != "power-off" else "off"
-            current_temp = current_setting.temp
-            current_vol = current_setting.vol
+    if device_type == "AC":
+        current_setting = device_info.settings
+
+        # merge button into mode
+        if selected_field == "select_mode":
+            selected_mode = selected_value
+            current_setting.mode = selected_mode
+            current_setting.button = "power-off" if selected_mode == "off" else "power-on"
+        else:
+            selected_mode = current_setting.mode if current_setting.button != "power-off" else "off"
+
+        # on device change or on mode changes, re-populate actions
+        if selected_field in ("select_device", "select_mode"):
+            actions = actions[0:1]
 
             modes = device_info.aircon.range.modes
             mode_options = [{"text": "mode: off", "value": "off"}] + [{"text": "mode: {}".format(mode), "value": mode} for mode in modes.attribute_map.keys()]
-            selected_mode_options = [opt for opt in mode_options if opt["value"] == current_mode]
+            selected_mode_options = [opt for opt in mode_options if opt["value"] == selected_mode]
             actions.append({
                         "name": "select_mode",
                         "text": "Select mode",
@@ -110,22 +104,24 @@ def handle_callback_nature_remo(slack_client, request):
                         "options": mode_options,
                         "selected_options": selected_mode_options})
 
-            if current_mode not in ("off", "blow"):
-                temps = getattr(device_info.aircon.range.modes, current_mode).temp
-                if current_mode in ("auto", "dry"):
+            # temperture
+            temps = getattr(device_info.aircon.range.modes, current_setting.mode).temp
+            if selected_mode in ("off", "blow"):
+                current_setting.temp = temps[0] # should be empty string ""
+            else:
+                if selected_mode in ("auto", "dry"):
                     temp_options = [{"text": "temp: {}".format(signed_number(temp)), "value": temp} for temp in temps]
-                    default_temp_options = [ opt for opt in temp_options if opt["value"] == "0" ]
+                    current_setting.temp = "0"
                 else:
                     temp_options = [{"text": "temp: " + str(temp) + "℃", "value": temp } for temp in temps]
-                    if current_mode in ("warm"):
-                        default_temp_options = [ opt for opt in temp_options if opt["value"] == "18" ]
+                    if selected_mode in ("warm"):
+                        current_setting.temp = "18"
                     else:
-                        default_temp_options = [ opt for opt in temp_options if opt["value"] == "27" ]
+                        current_setting.temp = "27"
 
-                selected_temp_options = [opt for opt in temp_options if opt["value"] == current_temp]
+                selected_temp_options = [opt for opt in temp_options if opt["value"] == current_setting.temp]
                 if len(selected_temp_options) == 0:
-                    selected_temp_options = default_temp_options if len(default_temp_options) != 0 else temp_options[0]
-
+                    selected_temp_options = temp_options[0]
                 actions.append({
                             "name": "select_temp",
                             "text": "Select temperture",
@@ -133,10 +129,15 @@ def handle_callback_nature_remo(slack_client, request):
                             "options": temp_options,
                             "selected_options": selected_temp_options})
 
-            if current_mode not in ("off"):
-                vols = getattr(device_info.aircon.range.modes, current_mode).vol
+            # volume
+            vols = getattr(device_info.aircon.range.modes, selected_mode).vol
+            if selected_mode in ("off"):
+                current_setting.vol = vols[0] # should be empty string ""
+            else:
                 vol_options = [{"text": "volume: {}".format(vol), "value": vol} for vol in vols]
-                selected_vol_options = [opt for opt in vol_options if opt["value"] == current_vol]
+                selected_vol_options = [opt for opt in vol_options if opt["value"] == current_setting.vol]
+                if len(selected_vol_options) == 0:
+                    selected_vol_options = [opt for opt in vol_options if opt["value"] == "auto"]
                 if len(selected_vol_options) == 0:
                     selected_vol_options = vol_options[0]
                 actions.append({
@@ -146,18 +147,67 @@ def handle_callback_nature_remo(slack_client, request):
                             "options": vol_options,
                             "selected_options": selected_vol_options})
 
-            pprint(actions)
+            dirs = getattr(device_info.aircon.range.modes, selected_mode).dir
+            # direction
+            if selected_mode in ("off"):
+                current_setting.dir = dirs[0] # should be empty string ""
+            else:
+                dir_options = [{"text": "direction: {}".format(dir), "value": dir} for dir in dirs]
+                selected_dir_options = [opt for opt in dir_options if opt["value"] == current_setting.dir]
+                if len(selected_dir_options) == 0:
+                    selected_dir_options = [opt for opt in dir_options if opt["value"] == "still"]
+                if len(selected_dir_options) == 0:
+                    selected_dir_options = dir_options[0]
+                actions.append({
+                            "name": "select_dir",
+                            "text": "Select direction",
+                            "type": "select",
+                            "options": dir_options,
+                            "selected_options": selected_dir_options})
+
+            # update actions
             attachments[0]["actions"] = actions
+            slack_client.api_call(
+                "chat.update",
+                channel=channel,
+                ts=post_ts,
+                attachments=attachments
+            )
 
-        else: # device_type == "IR"
-            pass
+        # temperture update
+        if selected_field == "select_temp":
+            current_setting.temp = selected_value
 
-        slack_client.api_call(
-            "chat.update",
-            channel=channel,
-            ts=post_ts,
-            attachments=attachments
-        )
+        # volume update
+        if selected_field == "select_vol":
+            current_setting.vol == selected_value
+
+        # direction update
+        if selected_field == "select_dir":
+            current_setting.dir = selected_value
+
+        if selected_field != "select_device":
+            result = nature_api.v1_appliances_appliance_aircon_settings_post(
+                selected_device,
+                button=current_setting.button, operation_mode=current_setting.mode, 
+                temperature=current_setting.temp,
+                air_volume=current_setting.vol, air_direction=current_setting.dir)
+            pprint(result)
+
+    else: # device_type == "IR"
+        pass
+
+    """
+    elif selected_field in ("select_mode", "select_temp", "select_vol"):
+        appliance_id = actions[0]["selected_options"][0]["value"]
+        nature_appliances = nature_api.v1_appliances_appliance_aircon_settings_post()
+        :param str appliance: Appliance ID. (required)
+        :param str temperature: Temperature
+        :param str operation_mode: AC operation mode
+        :param str air_volume: AC air volume
+        :param str air_direction: AC air direction
+        :param str button: Button
+    """
 
 def post_room_info(slack_client, channel, user=None, ephemeral=False):
     nature_device_status = nature_api.v1_devices_get()
