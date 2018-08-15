@@ -177,7 +177,7 @@ def handle_callback_nature_remo(slack_client, request):
 
         # volume update
         if selected_field == "select_vol":
-            current_setting.vol == selected_value
+            current_setting.vol = selected_value
 
         # direction update
         if selected_field == "select_dir":
@@ -194,18 +194,6 @@ def handle_callback_nature_remo(slack_client, request):
 
     else: # device_type == "IR"
         pass
-
-    """
-    elif selected_field in ("select_mode", "select_temp", "select_vol"):
-        appliance_id = actions[0]["selected_options"][0]["value"]
-        nature_appliances = nature_api.v1_appliances_appliance_aircon_settings_post()
-        :param str appliance: Appliance ID. (required)
-        :param str temperature: Temperature
-        :param str operation_mode: AC operation mode
-        :param str air_volume: AC air volume
-        :param str air_direction: AC air direction
-        :param str button: Button
-    """
 
 def post_room_info(slack_client, channel, user=None, ephemeral=False):
     nature_device_status = nature_api.v1_devices_get()
