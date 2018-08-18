@@ -64,7 +64,7 @@ def handle_callback_nature_remo(slack_client, request):
 
     actions = attachments[0]["actions"]
     selected_field = request["actions"][0]["name"]
-    selected_value = request["actions"][0]["selected_options"][0]["value"]
+    selected_value = request["actions"][0]["selected_options"][0]["value"] if "selected_options" in request["actions"][0] else None
 
     # device info
     if selected_field == "select_device":
@@ -149,7 +149,7 @@ def handle_callback_nature_remo(slack_client, request):
 
                 # direction
                 dirs = getattr(device_info.aircon.range.modes, selected_mode).dir
-                dir_options = [{"text": "direction: {}".format(dir), "value": dir} for dir in dirs]
+                dir_options = [{"text": "direction: {}".format(d), "value": d} for d in dirs]
                 selected_dir_options = [opt for opt in dir_options if opt["value"] == current_setting.dir]
                 if len(selected_dir_options) == 0:
                     selected_dir_options = [opt for opt in dir_options if opt["value"] == "still"]
@@ -194,12 +194,67 @@ def handle_callback_nature_remo(slack_client, request):
             pprint(result)
             slack_client.api_call(
                 "chat.postMessage",
-                channel=channel,
+                channel="#omoikane-test",
                 text=f"Remo Send IR to {selected_device_name}: mode {selected_mode} - target temperture: {current_setting.temp} - air_volume: {current_setting.vol} - air_direction: {current_setting.dir}"
             )
 
     else: # device_type == "IR"
-        pass
+        if selected_field in ("select_device"):
+            actions = actions[0:1]
+
+            signals = device_info.signals
+            sig_options = [{"text": sig.name, "value": sig.id} for sig in signals]
+            actions.append({
+                        "name": "select_sig",
+                        "text": "Select signal",
+                        "type": "select",
+                        "options": sig_options})
+
+            actions.append({
+                        "name": "send_again",
+                        "text": "Send Signal Again",
+                        "type": "button"})
+
+            # update actions
+            attachments[0]["actions"] = actions
+            slack_client.api_call(
+                "chat.update",
+                channel=channel,
+                ts=post_ts,
+                attachments=attachments
+            )
+
+        if selected_field != "select_device":
+            signals = device_info.signals
+            if selected_field == "select_sig":
+                selected_signal = selected_value
+                selected_sig_options = [{"text": sig.name, "value": sig.id} for sig in signals if sig.id == selected_signal]
+                selected_signal_name = selected_sig_options[0]["text"]
+                actions[1]["selected_options"] = selected_sig_options
+
+                # update actions
+                attachments[0]["actions"] = actions
+                slack_client.api_call(
+                    "chat.update",
+                    channel=channel,
+                    ts=post_ts,
+                    attachments=attachments
+                )
+
+            else: # selected_field == "send_again"
+                if "selected_options" not in actions[1]:
+                    return
+                selected_option = actions[1]["selected_options"][0]
+                selected_signal = selected_option["value"]
+                selected_signal_name = selected_option["text"]
+
+            result = nature_api.v1_signals_signal_send_post(selected_signal)
+            pprint(result)
+            slack_client.api_call(
+                "chat.postMessage",
+                channel="#omoikane-test",
+                text=f"Remo Send IR to {selected_device_name}: signal {selected_signal_name} "
+            )
 
 def post_room_info(slack_client, channel, user=None, ephemeral=False):
     nature_device_status = nature_api.v1_devices_get()
