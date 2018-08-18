@@ -4,7 +4,6 @@ from slackeventsapi import SlackEventAdapter
 from slackclient import SlackClient
 import os
 import json
-from pprint import pprint
 
 from plugins.remo import post_room_info, post_action_nature_remo, handle_callback_nature_remo
 
@@ -19,7 +18,6 @@ slack_client = SlackClient(SLACK_BOT_TOKEN)
 @app.route("/omoikane/interactive", methods=["POST"])
 def handle_interactive_post():
     request_body = json.loads(request.form["payload"])
-    pprint(request_body)
 
     if request_body["token"] != SLACK_SIGNING_SECRET:
         return make_response("", 400)
@@ -32,8 +30,6 @@ def handle_interactive_post():
 
 @slack_events_adapter.on("message")
 def handle_message(event_data):
-    ## pprint(event_data)
-
     message = event_data["event"]
     # If the incoming message contains "hi", then respond with a "Hello" message
     if message.get("subtype") is None and "hi" in message.get('text'):

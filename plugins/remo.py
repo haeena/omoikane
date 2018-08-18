@@ -3,7 +3,6 @@ from slackeventsapi import SlackEventAdapter
 import os
 import re
 import json
-from pprint import pprint
 
 # generate client
 from nature_api_client.api_client import ApiClient as NatureApiClient, Configuration as NatureConfig
@@ -191,7 +190,6 @@ def handle_callback_nature_remo(slack_client, request):
                 button=current_setting.button, operation_mode=current_setting.mode, 
                 temperature=current_setting.temp,
                 air_volume=current_setting.vol, air_direction=current_setting.dir)
-            pprint(result)
             slack_client.api_call(
                 "chat.postMessage",
                 channel="#omoikane-test",
@@ -249,7 +247,6 @@ def handle_callback_nature_remo(slack_client, request):
                 selected_signal_name = selected_option["text"]
 
             result = nature_api.v1_signals_signal_send_post(selected_signal)
-            pprint(result)
             slack_client.api_call(
                 "chat.postMessage",
                 channel="#omoikane-test",
