@@ -13,7 +13,7 @@ itsdangerous==0.24        # via flask
 jinja2==2.10              # via flask
 markupsafe==1.0           # via jinja2
 pyee==5.0.0               # via slackeventsapi
-requests==2.19.1
+requests==2.20.0
 six==1.11.0               # via slackclient, slackeventsapi, websocket-client
 slackclient==1.2.1
 slackeventsapi==1.1.0
